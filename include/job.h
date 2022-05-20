@@ -16,7 +16,16 @@
 #include <string>
 
 
-#define MAX_COMMAND_TOKENS 50
+
+/* 
+ * maximum number of tokens (flags, args, etc.) 
+ * that can be put into a single command. Chosen
+ * so that it allows for a reasonably sized command
+ * but does not use up too much system resources
+ */
+#define MAX_COMMAND_TOKENS 100
+
+
 
 
 /*
@@ -29,41 +38,53 @@ class Command
 {
 private:
 
+    // used for standard output redirection (i.e. ls > out.txt)
+    bool _redirectOutput;
+    bool _appendOutput;
+    std::vector<std::string> _outputFiles;
+
+    // used for standard input redirection (i.e. less < contacts.txt)
+    bool _redirectInput;
+    std::vector<std::string> _inputFiles;
+
+    // used for standard error redirection (i.e. ls -l 2> /dev/null)
+    bool _redirectError;
+    std::vector<std::string> _errorFiles;
+
+    // token array stores the command entered (without the redirection)
+    int _numTokens;
+    std::vector<std::string> _tokenArray;
+    
 
 public:
 
-    /********************
-     * Public variables
-     ********************/
-
-    // used for standard output redirection (i.e. ls > out.txt)
-    bool redirectOutput;
-    bool appendOutput;
-    std::vector<std::string> *outputFiles;
-
-    // used for standard input redirection (i.e. less < contacts.txt)
-    bool redirectInput;
-    std::vector<std::string> *inputFiles;
-
-    // used for standard error redirection (i.e. ls -l 2> /dev/null)
-    bool redirectError;
-    std::vector<std::string> *errorFiles;
-
-    int numTokens;
-    std::vector<std::string> *tokenArray;
 
     /************************************
      * Public functions and constructors
      ************************************/
 
 
+
+    // default constructor
     Command();
-    Command(std::vector<std::string> *tokenArray, \
-    std::vector<std::string> *outputFiles, std::vector<std::string> *inputFiles, \
-    std::vector<std::string> *errorFiles, bool appendOutput);
+    
+    
+    /*
+     * Constructor for Command copies the token array into the object.
+     */
+    Command(const std::vector<std::string>& tokenArray, \
+        const std::vector<std::string>& outputFiles, const std::vector<std::string>& inputFiles, \
+        const std::vector<std::string>& errorFiles, bool appendOutput);
 
+    /*
+     * Copy constructor for the command class
+     */
+    //Command(Command& command);
+    
+
+
+    // destructor
     ~Command();
-
 
     /*****************************************
      * Getters and setters for private fields
@@ -72,29 +93,27 @@ public:
     /* no setters for boolean fields. These will be set
      * when the file list is set */
     bool isOutputRedirected();
-    std::vector<std::string> *getOutputFiles();
+    std::vector<std::string>& getOutputFiles();
     void addOutputFile(std::string outputFile);
 
     bool isOutputAppended();
     void setOutputAppended(bool appendOutput);
 
     bool isInputRedirected();
-    std::vector<std::string> *getInputFiles();
+    std::vector<std::string>& getInputFiles();
     void addInputFile(std::string inputFile);
 
     bool isErrorRedirected();
-    std::vector<std::string> *getErrorFiles();
+    std::vector<std::string>& getErrorFiles();
     void addErrorFile(std::string errorFile);
 
     // numTokens has no setter. set when token array is set
     int getNumTokens();
-    std::vector<std::string> *getTokenArray();
-    void setTokenArray(std::vector<std::string> *tokenArraystring);
-
-    // prints the command
-    void printCommand();
-
+    std::vector<std::string>& getTokenArray();
+    void setTokenArray(std::vector<std::string>& tokenArray);
 };
+
+void operator<<(std::ostream& cout, Command& command);
 
 
 
@@ -111,21 +130,21 @@ public:
 class Job
 {
 private:
-    bool background;
-    int numCommands;
-    std::vector<Command*> *commands;
+    bool _background;
+    int _numCommands;
+    std::vector<Command> _commands;
     
 
 public:
     Job();
-    Job(bool background, int numCommands, std::vector<Command*> *commands);
+    Job(bool background, int numCommands, const std::vector<Command>& commands);
     ~Job();
 
     bool isBackground();
     int getNumCommands();
-    std::vector<Command*> *getCommands();
+    std::vector<Command>& getCommands();
     void setBackground(bool isBackground);
-    void addCommand(Command *command);
+    void addCommand(const Command& command);
 };
 
 

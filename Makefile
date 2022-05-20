@@ -1,7 +1,7 @@
 #  -*- Makefile -*-
 
 CC=clang++
-CFLAGS= -g -O0 -std=c++14
+CFLAGS= -Wall -O0 -std=c++11
 
 SDIR=src
 INCL=include
@@ -9,10 +9,14 @@ ODIR=obj
 FILES = jshell parse job
 OBJS = $(patsubst %, $(ODIR)/%.o, $(FILES))
 TESTDIR = test
+BIN_NAME = josh
+BINPATH = /usr/local/bin
+BINARY = $(patsubst %, $(BINPATH)/%, $(BIN_NAME))
 
 # makes the final binary for the shell
-josh: $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
+default: $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $(BINARY) $(BIN_NAME)
+
 
 # makes the intermediate object files to build the final binary
 $(ODIR)/%.o: $(SDIR)/%.cc
@@ -28,15 +32,24 @@ $(TESTDIR)/$(ODIR)/test_%.o: $(TESTDIR)/$(SDIR)/test_%.cc
 	$(CC) -I $(INCL) $(CFLAGS) -c $^ -o $@
 
 
-#.PHONY clean
+.PHONY: install
+install:
+	cp $(BIN_NAME) $(BINARY)
 
+
+.PHONY: uninstall
+uninstall:
+	rm $(BINARY)
+
+
+
+.PHONY: clean
 clean:
 	rm $(ODIR)/*.o
 	rm josh
 
 
-#.PHONY cleantest
-
+.PHONY: cleantest
 cleantest:
 	rm $(TESTDIR)/test_*
 	rm $(TESTDIR)/$(ODIR)/*.o

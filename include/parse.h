@@ -16,26 +16,26 @@
 /*
  * Splits a string into a stream of tokens on the given delimiters.
  */
-std::vector<std::string> split(std::string inputString, std::string delimiters);
+std::vector<std::string> tokenize(std::string inputString, std::string delimiters);
 
 
 /*
  * This function takes the input command string and breaks it into
  * a sequence of tokens by splitting it at every space character.
  */
-std::vector<std::string> tokenize(std::string input_string);
+std::vector<std::string> tokenize(char *inputString, char *delimiters);
 
 /*
  * This function takes the token sequence created by the previous function
  * and parses it to create the job object that stores the information for 
  * the command to be executed.
  */
-Job *parse_job(std::vector<std::string> tokens);
+Job parse_job(std::vector<std::string> tokens);
 
 /*
  * Function that is called by parse_job to parse an individual command.
  */
-Command *parse_command(std::vector<std::string> tokens);
+Command parse_command(std::vector<std::string> tokens);
 
 
 /*
@@ -49,7 +49,7 @@ Command *parse_command(std::vector<std::string> tokens);
  * to be changed in the future to allow more complex or efficient
  * algorithms.
  */
-Job *getJob(std::string commandString);
+Job getJob(std::string commandString);
 
 
 

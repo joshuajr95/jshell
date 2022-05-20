@@ -15,77 +15,77 @@
 #include <job.h>
 
 
-void testAllGetters(Command *command)
+void testAllGetters(Command command)
 {
     // print numTokens
-    std::cout << "Num Tokens: " << command->getNumTokens() << std::endl;
+    std::cout << "Num Tokens: " << command.getNumTokens() << std::endl;
 
     // get token array and print it out
-    std::vector<std::string> *tokenArray = command->getTokenArray();
+    std::vector<std::string> tokenArray = command.getTokenArray();
     std::cout << "Token Array:";
-    for(int i = 0; i < tokenArray->size(); i++)
+    for(int i = 0; i < tokenArray.size(); i++)
     {
-        std::cout << "\t" << tokenArray->at(i);
+        std::cout << "\t" << tokenArray.at(i);
     }
     std::cout << std::endl;
     
 
 
     // print redirectOutput
-    std::cout << "RedirectOutput: " << command->isOutputRedirected() << std::endl;
+    std::cout << "RedirectOutput: " << command.isOutputRedirected() << std::endl;
 
     // get output files and print them out
-    std::vector<std::string> *outputFiles = command->getOutputFiles();
+    std::vector<std::string> outputFiles = command.getOutputFiles();
     std::cout << "OutputFiles:";
-    for(int i = 0; i < outputFiles->size(); i++)
+    for(int i = 0; i < outputFiles.size(); i++)
     {
-        std::cout << "\t" << outputFiles->at(i);
+        std::cout << "\t" << outputFiles.at(i);
     }
     std::cout << std::endl;
 
 
 
     // print redirectInput
-    std::cout << "RedirectInput: " << command->isInputRedirected() << std::endl;
+    std::cout << "RedirectInput: " << command.isInputRedirected() << std::endl;
 
     // get input files and print them out
-    std::vector<std::string> *inputFiles = command->getInputFiles();
+    std::vector<std::string> inputFiles = command.getInputFiles();
     std::cout << "InputFiles:";
-    for(int i = 0; i < inputFiles->size(); i++)
+    for(int i = 0; i < inputFiles.size(); i++)
     {
-        std::cout << "\t" << inputFiles->at(i);
+        std::cout << "\t" << inputFiles.at(i);
     }
     std::cout << std::endl;
 
     // print redirectError
-    std::cout << "RedirectError: " << command->isErrorRedirected() << std::endl;
+    std::cout << "RedirectError: " << command.isErrorRedirected() << std::endl;
 
     // get error files and print them out
-    std::vector<std::string> *errorFiles = command->getErrorFiles();
+    std::vector<std::string> errorFiles = command.getErrorFiles();
     std::cout << "ErrorFiles:";
-    for(int i = 0; i < errorFiles->size(); i++)
+    for(int i = 0; i < errorFiles.size(); i++)
     {
-        std::cout << "\t" << errorFiles->at(i);
+        std::cout << "\t" << errorFiles.at(i);
     }
     std::cout << std::endl;
 }
 
 
-void testAllGetters(Job *job)
+void testAllGetters(Job job)
 {
     std::cout << "Printing Job..." << std::endl;
     std::cout << "_________________\n" << "_________________\n";
 
     // print out whether job is background
-    std::cout << "Background: " << job->isBackground() << std::endl;
+    std::cout << "Background: " << job.isBackground() << std::endl;
 
     // print out the number of commands
-    std::cout << "Num Commands: " << job->getNumCommands() << std::endl;
+    std::cout << "Num Commands: " << job.getNumCommands() << std::endl;
 
-    std::vector<Command*> *commands = job->getCommands();
-    for (int i = 0; i < commands->size(); i++)
+    std::vector<Command> commands = job.getCommands();
+    for (int i = 0; i < commands.size(); i++)
     {
-        Command *command = commands->at(i);
+        Command command = commands.at(i);
         std::cout << "Command " << i << "\n___________\n\n";
         testAllGetters(command);
         std::cout << "\n\n";
@@ -105,12 +105,12 @@ int main(int argc, char *argv[])
     std::string badCommand1 = "ls >";
 
 
-    Job *job1 = getJob(command1);
-    Job *job2 = getJob(command2);
-    Job *job3 = getJob(command3);
-    Job *job4 = getJob(command4);
-    Job *job5 = getJob(command5);
-    Job *job6 = getJob(command6);
+    Job job1 = getJob(command1);
+    Job job2 = getJob(command2);
+    Job job3 = getJob(command3);
+    Job job4 = getJob(command4);
+    Job job5 = getJob(command5);
+    Job job6 = getJob(command6);
 
     
     testAllGetters(job1);
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     testAllGetters(job5);
     testAllGetters(job6);
 
-    Job *badJob1 = getJob(badCommand1);
+    Job badJob1 = getJob(badCommand1);
 
     testAllGetters(badJob1);
     

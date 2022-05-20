@@ -9,111 +9,15 @@
 
 
 #include <stdbool.h>
-#include <string.h>
 #include <iostream>
 #include <vector>
 #include <string>
 #include <exception>
 
 
-/* 
- * maximum number of tokens (flags, args, etc.) 
- * that can be put into a single command. Chosen
- * so that it allows for a reasonably sized command
- * but does not use up too much system resources
- */
-#define MAX_COMMAND_TOKENS 100
+#include <job.h>
 
 
-
-/*
- * Command class uses array of char* instead of vector because this is the
- * form that exec uses for argument vector and converting from a std::vector
- * object to an array would waste time.
- */
-class Command
-{
-private:
-
-    // used for standard output redirection (i.e. ls > out.txt)
-    bool redirectOutput;
-    bool appendOutput;
-    std::vector<std::string> *outputFiles;
-
-    // used for standard input redirection (i.e. less < contacts.txt)
-    bool redirectInput;
-    std::vector<std::string> *inputFiles;
-
-    // used for standard error redirection (i.e. ls -l 2> /dev/null)
-    bool redirectError;
-    std::vector<std::string> *errorFiles;
-
-    // token array stores the command entered (without the redirection)
-    int numTokens;
-    std::vector<std::string> *tokenArray;
-    
-
-public:
-
-
-    /************************************
-     * Public functions and constructors
-     ************************************/
-
-
-
-    // default constructor
-    Command();
-    
-    
-    /*
-     * Constructor for Command copies the token array into the object.
-     */
-    Command(std::vector<std::string> *tokenArray, \
-        std::vector<std::string> *outputFiles, std::vector<std::string> *inputFiles, \
-        std::vector<std::string> *errorFiles, bool appendOutput);
-
-    /*
-     * Copy constructor for the command class
-     */
-    Command(Command *command);
-    
-
-
-    // destructor
-    ~Command();
-
-    /*****************************************
-     * Getters and setters for private fields
-     *****************************************/
-
-    /* no setters for boolean fields. These will be set
-     * when the file list is set */
-    bool isOutputRedirected();
-    std::vector<std::string> *getOutputFiles();
-    void addOutputFile(std::string outputFile);
-
-    bool isOutputAppended();
-    void setOutputAppended(bool appendOutput);
-
-    bool isInputRedirected();
-    std::vector<std::string> *getInputFiles();
-    void addInputFile(std::string inputFile);
-
-    bool isErrorRedirected();
-    std::vector<std::string> *getErrorFiles();
-    void addErrorFile(std::string errorFile);
-
-    // numTokens has no setter. set when token array is set
-    int getNumTokens();
-    std::vector<std::string> *getTokenArray();
-    void setTokenArray(std::vector<std::string> *tokenArray);
-
-    // print out the command to the user (mostly used for testing)
-    void printCommand();
-
-    
-};
 
 
 /* 
@@ -125,19 +29,12 @@ public:
 Command::Command()
 {
     // stdin, stdout, and stderr redirection is disabled by default
-    this->redirectInput = false;
-    this->redirectOutput = false;
-    this->redirectError = false;
-    this->appendOutput = false;
-
-    // redirection files are set to empty list by default
-    this->inputFiles = new std::vector<std::string>();
-    this->outputFiles = new std::vector<std::string>();
-    this->errorFiles = new std::vector<std::string>();
-
-    // set up empty command string to prevent accessing null data
-    this->numTokens = 0;
-    this->tokenArray = new std::vector<std::string>();
+    _redirectInput = false;
+    _redirectOutput = false;
+    _redirectError = false;
+    _appendOutput = false;
+    
+    _numTokens = 0;
 }
 
 
@@ -148,79 +45,64 @@ Command::Command()
  * to the function, the constructor checks to make sure that the
  * pointers are not NULL before trying to dereference them.
  */
-Command::Command(std::vector<std::string> *tokenArray, std::vector<std::string> *outputFiles, \
-        std::vector<std::string> *inputFiles, std::vector<std::string> *errorFiles, bool appendOutput)
+Command::Command(const std::vector<std::string>& tokenArray, const std::vector<std::string>& outputFiles, \
+        const std::vector<std::string>& inputFiles, const std::vector<std::string>& errorFiles, bool appendOutput)
 {
-    this->numTokens = tokenArray->size();
-    this->appendOutput = appendOutput;
+    _numTokens = tokenArray.size();
+    _appendOutput = appendOutput;
 
-    if(tokenArray == NULL)
+    
+    for(std::string token : tokenArray)
     {
-        this->tokenArray = new std::vector<std::string>();
-    }
-    else
-    {
-        this->tokenArray = new std::vector<std::string>(*tokenArray);
-    }
-
-
-    // setup output redirection
-    if(outputFiles == NULL)
-    {
-        this->outputFiles = new std::vector<std::string>();
-    }
-    else
-    {
-        this->outputFiles = new std::vector<std::string>(*outputFiles);
+        _tokenArray.push_back(token);
     }
     
-    if(outputFiles->size() > 0)
+    // setup output redirection
+    for(std::string file : outputFiles)
     {
-        this->redirectOutput = true;
+        _outputFiles.push_back(file);
+    }
+
+    
+    if(outputFiles.size() > 0)
+    {
+        _redirectOutput = true;
     }
     else
     {
-        this->redirectOutput = false;
+        _redirectOutput = false;
     }
 
 
     // setup input redirection
-    if(inputFiles == NULL)
+    for(std::string file : inputFiles)
     {
-        this->inputFiles = new std::vector<std::string>();
-    }
-    else
-    {
-        this->inputFiles = new std::vector<std::string>(*inputFiles);
+        _inputFiles.push_back(file);
     }
 
-    if(inputFiles->size() > 0)
+    if(inputFiles.size() > 0)
     {
-        this->redirectInput = true;
+        _redirectInput = true;
     }
     else
     {
-        this->redirectInput=false;
+        _redirectInput=false;
     }
 
     
     // setup error redirection
-    if(errorFiles == NULL)
+    for(std::string file : errorFiles)
     {
-        this->errorFiles = new std::vector<std::string>();
-    }
-    else
-    {
-        this->errorFiles = new std::vector<std::string>(*errorFiles);
+        _errorFiles.push_back(file);
     }
 
-    if(errorFiles->size() > 0)
+    if(errorFiles.size() > 0)
     {
-        this->redirectError = true;
+        _redirectError = true;
     }
     else
     {
-        this->redirectError = false;
+        _redirectError = false;
     }
 }
 
@@ -230,13 +112,15 @@ Command::Command(std::vector<std::string> *tokenArray, std::vector<std::string> 
  * token string for copy constructor because Command object cannot
  * be initialized with NULL pointer for any of the vectors.
  */
-Command::Command(Command *command)
+
+/*
+Command::Command(Command& command)
 {
-    this->appendOutput = command->isOutputAppended();
-    this->redirectOutput = command->isOutputRedirected();
-    this->redirectInput = command->isInputRedirected();
-    this->redirectError = command->isErrorRedirected();
-    this->numTokens = command->getNumTokens();
+    _appendOutput = command->isOutputAppended();
+    _redirectOutput = command->isOutputRedirected();
+    _redirectInput = command->isInputRedirected();
+    _redirectError = command->isErrorRedirected();
+    _numTokens = command->getNumTokens();
 
     std::vector<std::string> *inputFiles = command->getInputFiles();
     std::vector<std::string> *outputFiles = command->getOutputFiles();
@@ -270,23 +154,17 @@ Command::Command(Command *command)
     }
     
 }
+*/
 
 
 
 // destructor
 Command::~Command()
 {
-    inputFiles->clear();
-    delete inputFiles;
-
-    outputFiles->clear();
-    delete outputFiles;
-
-    errorFiles->clear();
-    delete errorFiles;
-
-    tokenArray->clear();
-    delete tokenArray;
+    _inputFiles.clear();
+    _outputFiles.clear();
+    _errorFiles.clear();
+    _tokenArray.clear();
 }
 
 /*****************************************
@@ -297,244 +175,201 @@ Command::~Command()
     * when the file list is set */
 bool Command::isOutputRedirected()
 {
-    return this->redirectOutput;
+    return _redirectOutput;
 }
 
 bool Command::isOutputAppended()
 {
-    return this->appendOutput;
+    return _appendOutput;
 }
 
 void Command::setOutputAppended(bool appendOutput)
 {
-    this->appendOutput = appendOutput;
+    _appendOutput = appendOutput;
 }
 
 
-std::vector<std::string> *Command::getOutputFiles()
+std::vector<std::string>& Command::getOutputFiles()
 {
-    return this->outputFiles;
+    return _outputFiles;
 }
 
 
 void Command::addOutputFile(std::string outputFile)
 {
-    this->redirectOutput = true;
-    this->outputFiles->push_back(outputFile);
+    _redirectOutput = true;
+    _outputFiles.push_back(outputFile);
 }
 
 
 bool Command::isInputRedirected()
 {
-    return redirectInput;
+    return _redirectInput;
 }
 
 
-std::vector<std::string> *Command::getInputFiles()
+std::vector<std::string>& Command::getInputFiles()
 {
-    return this->inputFiles;
+    return _inputFiles;
 }
 
 
 void Command::addInputFile(std::string inputFile)
 {
-    this->redirectInput = true;
-    this->inputFiles->push_back(inputFile);
+    _redirectInput = true;
+    _inputFiles.push_back(inputFile);
 }
 
 
 bool Command::isErrorRedirected()
 {
-    return redirectError;
+    return _redirectError;
 }
 
 
-std::vector<std::string> *Command::getErrorFiles()
+std::vector<std::string>& Command::getErrorFiles()
 {
-    return this->errorFiles;
+    return _errorFiles;
 }
 
 
 void Command::addErrorFile(std::string errorFile)
 {
-    this->redirectError = true;
-    this->errorFiles->push_back(errorFile);
+    _redirectError = true;
+    _errorFiles.push_back(errorFile);
 }
 
 
 // numTokens has no setter. set when token array is set
 int Command::getNumTokens()
 {
-    return numTokens;
+    return _numTokens;
 }
 
 
-std::vector<std::string> *Command::getTokenArray()
+std::vector<std::string>& Command::getTokenArray()
 {
-    return this->tokenArray;
+    return _tokenArray;
 }
 
 
-void Command::setTokenArray(std::vector<std::string> *tokenArray)
+void Command::setTokenArray(std::vector<std::string>& tokenArray)
 {
-    this->numTokens = tokenArray->size();
-    for (int i = 0; i < this->numTokens; i++)
+    _numTokens = tokenArray.size();
+    for (std::string token : tokenArray)
     {
-        std::string token = tokenArray->at(i);
-        this->tokenArray->push_back(token);
+        _tokenArray.push_back(token);
     }
     
 }
 
 
-/*************************
- * Print out the command *
- *************************/
-void Command::printCommand()
+// overload the insertion operator to print out the Command class
+void operator<<(std::ostream& out, Command& command)
 {
     // print output redirection files
-    std::cout << "Redirect Output: " << this->redirectOutput << std::endl;
-    std::cout << "Output Files:";
+    out << "Redirect Output: " << command.isOutputRedirected() << std::endl;
+    out << "Output Files:";
 
-    for (int i = 0; i < this->outputFiles->size(); i++)
+    for (std::string file : command.getOutputFiles())
     {
-        std::string outfile = outputFiles->at(i);
-        std::cout << "\t" << outfile;
+        out << "\t" << file;
     }
-    std::cout << std::endl;
+    out << std::endl;
     
 
     // print input redirection files
-    std::cout << "Redirect Input: " << this->redirectInput << std::endl;
-    std::cout << "Input Files:";
+    out << "Redirect Input: " << command.isInputRedirected() << std::endl;
+    out << "Input Files:";
 
-    for (int i = 0; i < this->inputFiles->size(); i++)
+    for (std::string file : command.getInputFiles())
     {
-        std::string infile = inputFiles->at(i);
-        std::cout << "\t" << infile;
+        out << "\t" << file;
     }
-    std::cout << std::endl;
+    out << std::endl;
 
 
     // print error redirection files
-    std::cout << "Redirect Input: " << this->redirectInput << std::endl;
-    std::cout << "Input Files:";
+    out << "Redirect Error: " << command.isErrorRedirected() << std::endl;
+    out << "Error Files:";
 
-    for (int i = 0; i < this->inputFiles->size(); i++)
+    for (std::string file : command.getErrorFiles())
     {
-        std::string infile = inputFiles->at(i);
-        std::cout << "\t" << infile;
+        out << "\t" << file;
     }
-    std::cout << std::endl;
+    out << std::endl;
 
 
     // print out the token array
-    std::cout << "NumTokens: " << this->numTokens << std::endl;
-    std::cout << "Token Array:";
+    out << "NumTokens: " << command.getNumTokens() << std::endl;
+    out << "Token Array:";
 
-    for (int i = 0; i < this->tokenArray->size(); i++)
+    for (std::string token : command.getTokenArray())
     {
-        std::string token = this->tokenArray->at(i);
-        std::cout << "\t" << token;
+        out << "\t" << token;
     }
-    std::cout << std::endl;
+    out << std::endl;
     
 }
 
 
-
-/*
- * Job class represents an entire Unix pipeline with a number of individual commands
- * connected by pipes. It can be run in the foreground or in the background.
- */
-class Job
-{
-private:
-
-    // used for whether command should be run in the background or not
-    bool background;
-
-    int numCommands;
-    std::vector<Command*> *commands;
-    
-
-public:
-
-    /*
-     * Default constructor
-     */
-    Job();
-
-    /*
-     * Constructor for Job object must copy all of the command objects
-     * into the Job object and set the appropriate variables.
-     */
-    Job(bool background, int numCommands, std::vector<Command*> *commands);
-    ~Job();
-    bool isBackground();
-    int getNumCommands();
-    std::vector<Command*> *getCommands();
-    void setBackground(bool isBackground);
-    void addCommand(Command *command);
-    
-};
+/**************************
+ * 
+ **************************/
 
 
 Job::Job()
 {
-    this->background = false;
-    this->numCommands = 0;
-    this->commands = new std::vector<Command*>();
+    _background = false;
+    _numCommands = 0;
 }
 
 
-Job::Job(bool background, int numCommands, std::vector<Command*> *commands)
+Job::Job(bool background, int numCommands, const std::vector<Command>& commands)
 {
-    this->background = background;
-    this->numCommands = numCommands;
-    this->commands = new std::vector<Command*>();
-
-    for(int i = 0; i < numCommands; i++)
+    _background = background;
+    _numCommands = numCommands;
+    
+    for(Command command : commands)
     {
-        this->commands->push_back(commands->at(i));
+        _commands.push_back(command);
     }
 }
 
 
 Job::~Job()
 {
-    commands->clear();
-    delete commands;
+    _commands.clear();
 }
 
 
 bool Job::isBackground()
 {
-    return this->background;
+    return _background;
 }
 
 
 int Job::getNumCommands()
 {
-    return this->numCommands;
+    return _numCommands;
 }
 
 
-std::vector<Command*> *Job::getCommands()
+std::vector<Command>& Job::getCommands()
 {
-    return this->commands;
+    return _commands;
 }
 
 
 void Job::setBackground(bool isBackground)
 {
-    this->background = isBackground;
+    _background = isBackground;
 }
 
 
-void Job::addCommand(Command *command)
+void Job::addCommand(const Command& command)
 {
-    this->commands->push_back(new Command(command));
-    this->numCommands++;
+    _commands.push_back(command);
+    _numCommands++;
 }
 

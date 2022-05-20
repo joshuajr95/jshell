@@ -93,13 +93,13 @@ std::vector<std::string> tokenize(char *inputString, char *delimiters)
  * This function is recursively called by the parse_job function. This is
  * a kind of top-down recursive parsing.
  */
-Command *parse_command(std::vector<std::string> tokens)
+Command parse_command(std::vector<std::string> tokens)
 {
     // index of the last part of the command that is not redirection
     int lastFlagIndex = -1;
 
     // create new command to store result of parsing
-    Command *command = new Command();
+    Command command;
 
 
     int i = 0;
@@ -113,7 +113,15 @@ Command *parse_command(std::vector<std::string> tokens)
         if(currentToken.compare(">") == 0 || currentToken.compare("1>") == 0)
         {
             
-            command->addOutputFile(tokens.at(i+1));
+            if(i+1 < tokens.size())
+            {
+                command.addOutputFile(tokens.at(i+1));
+            }
+            else
+            {
+                throw std::runtime_error("Bad command: incorrect syntax.");
+            }
+            
             
             
 
@@ -129,7 +137,14 @@ Command *parse_command(std::vector<std::string> tokens)
         else if(currentToken.compare("<") == 0)
         {
             
-            command->addInputFile(tokens.at(i+1));
+            if(i+1 < tokens.size())
+            {
+                command.addInputFile(tokens.at(i+1));
+            }
+            else
+            {
+                throw std::runtime_error("Bad command: incorrect syntax.");
+            }
 
 
             if(lastFlagIndex < 0)
@@ -143,7 +158,15 @@ Command *parse_command(std::vector<std::string> tokens)
         // error redirection denoted by 2>
         else if(currentToken.compare("2>") == 0)
         {
-            command->addErrorFile(tokens.at(i+1));
+            if(i+1 < tokens.size())
+            {
+                command.addErrorFile(tokens.at(i+1));
+            }
+            else
+            {
+                throw std::runtime_error("Bad command: incorrect syntax.");
+            }
+            
             
 
             if(lastFlagIndex < 0)
@@ -157,8 +180,16 @@ Command *parse_command(std::vector<std::string> tokens)
         // simultaneous output and error redirection denoted by &>
         else if(currentToken.compare("&>") == 0)
         {
-            command->addErrorFile(tokens.at(i+1));
-            command->addOutputFile(tokens.at(i+1));
+            if(i+1 < tokens.size())
+            {
+                command.addErrorFile(tokens.at(i+1));
+                command.addOutputFile(tokens.at(i+1));
+            }
+            else
+            {
+                throw std::runtime_error("Bad command: incorrect syntax.");
+            }
+            
             
             
 
@@ -191,7 +222,7 @@ Command *parse_command(std::vector<std::string> tokens)
         commandTokens.push_back(tokens.at(i));
     }
 
-    command->setTokenArray(&commandTokens);
+    command.setTokenArray(commandTokens);
 
     return command;
     
@@ -208,30 +239,29 @@ Command *parse_command(std::vector<std::string> tokens)
  * splitting the job into individual commands, and then parsing the individual
  * commands by calling parse_command.
  */
-Job *parse_job(std::vector<std::string> tokens)
+Job parse_job(std::vector<std::string> tokens)
 {
 
-    Job *job = new Job();
+    Job job;
 
     if(tokens.size() == 0)
     {
         return job;
     }
     
-    
+
     /* 
      * if the token string ends with '&', then command should be
      * run in the background. Otherwise foreground.
      */
     if(tokens.back().compare("&") == 0)
     {
-        
-        job->setBackground(true);
+        job.setBackground(true);
         tokens.pop_back();
     }
     else
     {
-        job->setBackground(false);
+        job.setBackground(false);
     }
 
 
@@ -252,16 +282,16 @@ Job *parse_job(std::vector<std::string> tokens)
             auto begin = tokens.begin() + start;
             auto end = tokens.end();
             std::vector<std::string> commandTokens(stop-start+1);
-            copy(begin, end, commandTokens.begin());
+            std::copy(begin, end, commandTokens.begin());
 
 
             /*
              * generate new command object by recursively parsing
              * using the parse_command routine
              */
-            Command *command = parse_command(commandTokens);
-            job->addCommand(command);
-            delete command;
+            Command command = parse_command(commandTokens);
+            job.addCommand(command);
+            
             
             stop++;
         }
@@ -276,13 +306,12 @@ Job *parse_job(std::vector<std::string> tokens)
             auto begin = tokens.begin() + start;
             auto end = tokens.begin() + stop;
             std::vector<std::string> commandTokens(stop-start);
-            copy(begin, end, commandTokens.begin());
+            std::copy(begin, end, commandTokens.begin());
 
 
             // recursively parse individual command and append it to command vector
-            Command *command = parse_command(commandTokens);
-            job->addCommand(command);
-            delete command;
+            Command command = parse_command(commandTokens);
+            job.addCommand(command);
 
             // increment iterators
             stop++;
@@ -318,7 +347,7 @@ Job *parse_job(std::vector<std::string> tokens)
  * 
  * WARNING: Throws an exception if the input is not in the correct format.
  */
-Job *getJob(std::string commandString)
+Job getJob(std::string commandString)
 {
     std::vector<std::string> tokens = tokenize(commandString, " ");
     return parse_job(tokens);
@@ -329,7 +358,7 @@ Job *getJob(std::string commandString)
  * Overloaded version of the previous function for interoperability
  * with C code.
  */
-Job *getJob(char *commandString)
+Job getJob(char *commandString)
 {
     return parse_job(tokenize(commandString, " "));
 }
