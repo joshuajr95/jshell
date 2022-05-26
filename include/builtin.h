@@ -29,12 +29,14 @@ BUILTIN_TABLE int do_builtin_exit(int argc, std::string argv[]);
 BUILTIN_TABLE int do_builtin_export(int argc, std::string argv[]);
 BUILTIN_TABLE int do_builtin_pwd(int argc, std::string argv[]);
 BUILTIN_TABLE int do_builtin_umask(int argc, std::string argv[]);
+BUILTIN_TABLE int do_builtin_unset(int argc, std::string argv[]);
 
 
 // the following functions execute Bourne again shell (bash) specific builtins
 BUILTIN_TABLE int do_builtin_alias(int argc, std::string argv[]);
 BUILTIN_TABLE int do_builtin_echo(int argc, std::string argv[]);
-BUILTIN_TABLE int do_builtin_source(int argc, std::string argv[]):
+BUILTIN_TABLE int do_builtin_kill(int argc, std::string argv[]);
+BUILTIN_TABLE int do_builtin_source(int argc, std::string argv[]);
 BUILTIN_TABLE int do_builtin_unalias(int argc, std::string argv[]);
 
 

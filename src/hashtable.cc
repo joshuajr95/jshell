@@ -10,37 +10,72 @@
 #include <hashtable.h>
 
 
-Table::Table()
+// constructor and destructor
+
+template<typename T1, typename T2>
+Table<T1, T2>::Table()
+{
+
+}
+
+template<typename T1, typename T2>
+Table<T1, T2>::~Table()
 {
 
 }
 
 
-Table::~Table()
-{
 
+// iterator access methods
+
+template<typename T1, typename T2>
+Table<T1,T2>::iterator& Table<T1,T2>::begin()
+{
+    return Table<T1,T2>::iterator(_table.begin());
+}
+
+template<typename T1, typename T2>
+Table<T1,T2>::iterator& Table<T1,T2>::end()
+{
+    return Table<T1,T2>::iterator(_table.end());
 }
 
 
-void Table::insert(T1 key, T2 value)
-{
-    _table.insert({key, value});
-}
 
+// element access functions. Both of these are equivalent
 
-T2 Table::get(T1 key)
+template<typename T1, typename T2>
+T2 Table<T1, T2>::get(T1 key)
 {
     return _table[key];
 }
 
 
-void Table::remove(T1 key)
+template<typename T1, typename T2>
+T2 Table<T1, T2>::operator[](T1 key)
+{
+    return _table[key];
+}
+
+
+// modifier functions
+
+template<typename T1, typename T2>
+void Table<T1, T2>::insert(T1 key, T2 value)
+{
+    _table.insert({key, value});
+}
+
+
+template<typename T1, typename T2>
+void Table<T1, T2>::remove(T1 key)
 {
     _table.erase(key);
 }
 
 
-T2 Table::extract(T1 key)
+template<typename T1, typename T2>
+T2 Table<T1, T2>::extract(T1 key)
 {
     T2 value = _table[key];
     _table.erase(key);
