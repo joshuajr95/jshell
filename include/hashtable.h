@@ -3,6 +3,7 @@
 #define HASHTABLE_H
 
 #include <map>
+#include <iterator>
 
 
 template <typename T1, typename T2> 
@@ -14,26 +15,9 @@ private:
 public:
 
     // implements the iterator for the class
-    class iterator: public std::iterator<
-                            std::bidirectional_iterator_tag,
-                            std::pair<T1, T2> >
-    {
-    private:
-        std::map::iterator _current;
-    
-    public:
-        iterator(std::map::iterator start) : _current(start) {}
 
-        // overloaded operators
-        iterator& operator++() {++_current; return *this}
-        iterator& operator--() {--_current; return *this}
-        std::map::iterator& operator->() {return _current}
-        bool operator==(iterator& other) {return _current->first == other->first && _current->second == other->second}
-        bool operator!=(iterator& other) {return !(_current->first == other->first && _current->second == other->second)}
-    };
-
-    iterator& begin();
-    iterator& end();
+    typename std::map<T1,T2>::iterator begin();
+    typename std::map<T1,T2>::iterator end();
 
 
 
@@ -50,6 +34,77 @@ public:
     void remove(T1 key);
     T2 extract(T1 key);
 };
+
+
+
+template<typename T1, typename T2>
+Table<T1, T2>::Table()
+{
+
+}
+
+template<typename T1, typename T2>
+Table<T1, T2>::~Table()
+{
+
+}
+
+
+// iterator access methods
+
+template<typename T1, typename T2>
+typename std::map<T1,T2>::iterator Table<T1,T2>::begin()
+{
+    return _table.begin();
+}
+
+template<typename T1, typename T2>
+typename std::map<T1,T2>::iterator Table<T1,T2>::end()
+{
+    return _table.end();
+}
+
+
+
+// element access functions. Both of these are equivalent
+
+template<typename T1, typename T2>
+T2 Table<T1, T2>::get(T1 key)
+{
+    return _table[key];
+}
+
+
+template<typename T1, typename T2>
+T2 Table<T1, T2>::operator[](T1 key)
+{
+    return _table[key];
+}
+
+
+// modifier functions
+
+template<typename T1, typename T2>
+void Table<T1, T2>::insert(T1 key, T2 value)
+{
+    _table.insert({key, value});
+}
+
+
+template<typename T1, typename T2>
+void Table<T1, T2>::remove(T1 key)
+{
+    _table.erase(key);
+}
+
+
+template<typename T1, typename T2>
+T2 Table<T1, T2>::extract(T1 key)
+{
+    T2 value = _table[key];
+    _table.erase(key);
+    return value;
+}
 
 
 #endif

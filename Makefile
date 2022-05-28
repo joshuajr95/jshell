@@ -25,7 +25,7 @@ $(ODIR)/%.o: $(SDIR)/%.cc
 
 # makes an individual test file from the target object file and the test object file
 test_%: $(TESTDIR)/$(ODIR)/test_%.o $(ODIR)/%.o $(ODIR)/job.o
-	$(CC) $(CFLAGS) $^ -o $(TESTDIR)/$@
+	$(CC) -g $(CFLAGS) $^ -o $(TESTDIR)/$@
 
 # builds the test object file
 $(TESTDIR)/$(ODIR)/test_%.o: $(TESTDIR)/$(SDIR)/test_%.cc

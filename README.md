@@ -8,6 +8,6 @@ My own implementation of a shell. The actual output binary is called `josh` for 
 
 Future developments of this shell may include
 
-1. Building a full shell interpreter that uses a more sophisticated parsing algorithm and formally specifies the grammar. This would allow for keywords such as `export`, `source`, and others. It would also allow for shell constructs like `for` and `if`.
+1. Building a full shell interpreter that uses a more sophisticated parsing algorithm and formally specifies the grammar. This would allow for shell constructs like `for` and `if`, as well as command substitution and process substitution.
 2. Subshells. This would allow the shell to run scripts as well as do command substitution.
 3. Multiple output, input, and error redirection. This would also necessitate much more complex process management than it currently has.
