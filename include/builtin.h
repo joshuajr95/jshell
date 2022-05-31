@@ -10,7 +10,7 @@
 
 // this defines the builtin function pointer type that is used in the
 // built-in table to access these functions
-typedef int (*Builtin)(int argc, std::string argv[]);
+typedef int (*builtin_t)(int argc, std::string argv[]);
 
 
 

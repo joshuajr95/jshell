@@ -28,6 +28,7 @@ public:
     // data access
     T2 get(T1 key);
     T2 operator[](T1 key);
+    bool contains(T1 key);
 
     // modifiers
     void insert(T1 key, T2 value);
@@ -79,6 +80,13 @@ template<typename T1, typename T2>
 T2 Table<T1, T2>::operator[](T1 key)
 {
     return _table[key];
+}
+
+
+template<typename T1, typename T2>
+bool Table<T1,T2>::contains(T1 key)
+{
+    return (_table.find(key) != _table.end());
 }
 
 

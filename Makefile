@@ -6,15 +6,22 @@ CFLAGS= -Wall -O0 -std=c++11 --verbose
 SDIR=src
 INCL=include
 ODIR=obj
-FILES = jshell parse job
+FILES = main parse job builtin signal_handlers
 OBJS = $(patsubst %, $(ODIR)/%.o, $(FILES))
 TESTDIR = test
 BIN_NAME = josh
 BINPATH = /usr/local/bin
 BINARY = $(patsubst %, $(BINPATH)/%, $(BIN_NAME))
 
+# execute scripts to auto-generate the necessary header files
+$(shell chmod +x generate_builtins.py)
+$(shell chmod +x generate_sighandlers.py)
+$(shell ./generate_builtins.py)
+$(shell ./generate_sighandlers.py)
+
+
 # makes the final binary for the shell
-default: $(OBJS)
+all: $(OBJS)
 	$(CC) $(CFLAGS) $^ -o $(BINARY) $(BIN_NAME)
 
 
@@ -32,23 +39,21 @@ $(TESTDIR)/$(ODIR)/test_%.o: $(TESTDIR)/$(SDIR)/test_%.cc
 	$(CC) -I $(INCL) $(CFLAGS) -c $^ -o $@
 
 
-.PHONY: install
+.PHONY: install uninstall clean cleantest
+
+
 install:
 	cp $(BIN_NAME) $(BINARY)
 
 
-.PHONY: uninstall
 uninstall:
 	rm $(BINARY)
 
 
-.PHONY: clean
 clean:
 	rm $(ODIR)/*.o
 	rm josh
 
-
-.PHONY: cleantest
 cleantest:
 	rm $(TESTDIR)/test_*
 	rm $(TESTDIR)/$(ODIR)/*.o
