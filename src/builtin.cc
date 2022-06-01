@@ -13,31 +13,23 @@
 #include <string.h>
 #include <errno.h>
 
-#include <builtin.h>
+
 #include <main.h>
 
 #define MAX_PATHNAME_LENGTH 128
 
 
-extern Table<std::string, std::string> alias_table;
-extern Table<pid_t, Job> job_table;
-
-
 // since the system call interfaces take C-style strings or string
 // arrays as arguments, it is necessary to convert between the C++-style
 // std::strings and the C-style char* strings
-static char **cpp_args_to_c_args(int argc, std::string argv[])
+static void cpp_args_to_c_args(char *c_argv[], int argc, std::string argv[])
 {
-    char *c_argv[argc];
-
     for(int i = 0; i < argc; i++)
     {
         const char *temp_str = argv[i].c_str();
         c_argv[i] = (char*) malloc(sizeof(char) * (strlen(temp_str) + 1));
         strcpy(c_argv[i], temp_str);
     }
-
-    return c_argv;
 }
 
 
@@ -60,22 +52,23 @@ static void free_all_args(int argc, char *argv[])
 
 BUILTIN_TABLE int do_builtin_cd(int argc, std::string argv[])
 {
-    if(argc > 1 || argc < 0)
+    if(argc > 2 || argc < 0)
     {
         std::cout << "Incorrect number of arguments to cd" << std::endl;
         return -1;
     }
 
-    char **args = cpp_args_to_c_args(argc, argv);
+    char *args[argc];
+    cpp_args_to_c_args(args, argc, argv);
     char *arg;
     
-    if(argc == 0)
+    if(argc == 1)
     {
-        arg = "~";
+        arg = (char*) "~";
     }
     else
     {
-        arg = args[0];
+        arg = args[1];
     }
 
     int retval = chdir(arg);
@@ -102,7 +95,8 @@ BUILTIN_TABLE int do_builtin_dot(int argc, std::string argv[])
     }
 
     // convert to C style argv
-    char **args = cpp_args_to_c_args(argc, argv);
+    char *args[argc];
+    cpp_args_to_c_args(args, argc, argv);
 
     pid_t pid = fork();
     int status;

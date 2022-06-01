@@ -1,7 +1,7 @@
 #  -*- Makefile -*-
 
 CC=clang++
-CFLAGS= -Wall -O0 -std=c++11 --verbose
+CFLAGS=  -g -Wall -O0 -std=c++11 --verbose
 
 SDIR=src
 INCL=include
@@ -22,7 +22,7 @@ $(shell ./generate_sighandlers.py)
 
 # makes the final binary for the shell
 all: $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $(BINARY) $(BIN_NAME)
+	$(CC) $(CFLAGS) $^ -o $(BIN_NAME)
 
 
 # makes the intermediate object files to build the final binary

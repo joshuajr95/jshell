@@ -7,7 +7,8 @@
 
 sighandler_t Signal(int signum, sighandler_t handler)
 {
-
+    
+    return handler;
 }
 
 

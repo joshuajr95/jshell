@@ -38,34 +38,25 @@ static char host_name[MAX_HOSTNAME_LENGTH];
 static int next_job_number = 1;
 
 
+Table<std::string, std::string> alias_table;
+Table<int, Job> job_table;
+Table<std::string, builtin_t> builtin_table;
+Table<int, sighandler_t> sighandler_table;
+
+
 /*
  * Wrapper function for the getlogin and getlogin_r functions since there are compatibility
  * issues with getlogin_r for Mac OSX but not with Linux.
  */
 int get_login_name(char *buf, size_t buf_size)
 {
-    int status;
 #if defined(__APPLE__) || defined(__MACH__)
-    buf = getlogin();
-
-    if(buf == NULL)
-        status = -1;
-    else
-        status = 0;
-    
-
+    buf = getenv("USER");
 #else
-    if(buf_size <= MAX_USERNAME_SIZE)
-    {
-        status = getlogin_r(buf, buf_size);
-    }
-    else
-    {
-        status = -1;
-    }
+    buf = getenv("USERNAME");
 #endif
 
-    return status;
+    return 0;
 }
 
 
@@ -94,10 +85,47 @@ void initialize_builtin_table()
 
 void initialize_sighandler_table()
 {
+    // insert signals and corresponding signal handlers into the table
     for(int i = 0; i < num_sighandlers; i++)
     {
         sighandler_table.insert(signum_list[i], signal_handler_list[i]);
     }
+
+    // install each signal handler
+    for(auto it = sighandler_table.begin(); it != sighandler_table.end(); ++it)
+    {
+        Signal(it->first, it->second);
+    }
+}
+
+
+bool is_builtin(Job& job)
+{
+    if(job.getNumCommands() == 0)
+        return false;
+    
+    Command first_command = job.getCommands()[0];
+    if(first_command.getNumTokens() == 0)
+        return false;
+
+    std::string command_name = job.getCommands()[0].getTokenArray()[0];
+
+    bool bi_table_contains = builtin_table.contains(command_name);
+    bool single_command = (job.getNumCommands() == 1);
+    
+    return bi_table_contains && single_command;
+}
+
+
+void execute_builtin(Job& job)
+{
+    std::string command_name = job.getCommands()[0].getTokenArray()[0];
+    builtin_t command_function = builtin_table[command_name];
+    
+    int argc = job.getCommands()[0].getNumTokens();
+    std::string *argv = &job.getCommands()[0].getTokenArray()[0];
+
+    command_function(argc, argv);
 }
 
 
@@ -116,6 +144,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+
     if(gethostname(host_name, MAX_HOSTNAME_LENGTH) != 0)
     {
         std::cout << strerror(errno) << std::endl;
@@ -126,17 +155,28 @@ int main(int argc, char *argv[])
     initialize_builtin_table();
     initialize_sighandler_table();
 
+    
+
     while(true)
     {
-        std::string prompt = make_prompt();
+        //std::getline(std::cin, command_input, '\n');
+        std::cout << make_prompt();
 
-        std::cout << prompt;
 
         std::string command_input;
-        std::cin >> command_input;
+        
+        std::getline(std::cin >> std::ws, command_input);
+        
+        
+        // check alias table before parsing job
+        if(alias_table.contains(command_input))
+        {
+            command_input = alias_table[command_input];
+        }
 
+
+        // parse command input
         Job current_job;
-
         try
         {
             current_job = getJob(command_input);
@@ -152,21 +192,14 @@ int main(int argc, char *argv[])
         {
             continue;
         }
+        
 
-        else if(current_job.getNumCommands() == 1)
+        
+
+        if(is_builtin(current_job))
         {
-            Command command = current_job.getCommands()[0];
-            if(builtin_table.contains(command.getTokenArray()[0]))
-            {
-                builtin_t command_function = builtin_table[command.getTokenArray()[0]];
-
-                if(command_function(command.getNumTokens(), &command.getTokenArray()[0]) != 0)
-                {
-                    std::cout << "Error executing builtin command..." << std::endl;
-                }
-
-                continue;
-            }
+            execute_builtin(current_job);
+            continue;
         }
 
         else
@@ -183,7 +216,9 @@ int main(int argc, char *argv[])
                 if(i < current_job.getNumCommands()-1)
                     pipe(fds[i]);
 
+
                 pids[i] = fork();
+
 
                 // error in forking
                 if(pids[i] < 0)
@@ -196,27 +231,6 @@ int main(int argc, char *argv[])
                 else if(pids[i] == 0)
                 {
                     
-                    // use dup2 to redirect stdout and stdin into and out of pipes
-                    if(i > 0 && i < current_job.getNumCommands()-1)
-                    {
-                        dup2(fds[i-1][0], STDIN_FILENO);
-                        dup2(fds[i][1], STDOUT_FILENO);
-                        close(fds[i][1]);
-                        close(fds[i-1][0]);
-                    }
-                    else if(i == 0)
-                    {
-                        close(fds[i][0]);
-                        dup2(fds[i][1], STDOUT_FILENO);
-                        close(fds[i][1]);
-                    }
-                    else if(i == current_job.getNumCommands()-1)
-                    {
-                        close(fds[i-1][1]);
-                        dup2(fds[i-1][0], STDIN_FILENO);
-                        close(fds[i-1][0]);
-                    }
-                    
 
                     // redirect input, output, and error
                     if(current_command.isInputRedirected() && (i == 0))
@@ -228,29 +242,58 @@ int main(int argc, char *argv[])
 
                     if(current_command.isOutputRedirected() && (i == current_job.getNumCommands()-1))
                     {
-                        int redirected_output = open(current_command.getOutputFiles()[0].c_str(), O_WRONLY);
+                        int redirected_output = open(current_command.getOutputFiles()[0].c_str(), O_WRONLY | O_CREAT);
                         dup2(redirected_output, STDOUT_FILENO);
                         close(redirected_output);
                     }
 
                     if(current_command.isErrorRedirected())
                     {
-                        int redirected_error = open(current_command.getErrorFiles()[0].c_str(), O_WRONLY);
-                        dup2(redirected_error, STDOUT_FILENO);
+                        int redirected_error = open(current_command.getErrorFiles()[0].c_str(), O_WRONLY | O_CREAT);
+                        dup2(redirected_error, STDERR_FILENO);
                         close(redirected_error);
                     }
+                    
 
+                    // use dup2 to redirect stdout and stdin into and out of pipes
+                    if(i > 0 && i < current_job.getNumCommands()-1)
+                    {
+                        dup2(fds[i-1][0], STDIN_FILENO);
+                        dup2(fds[i][1], STDOUT_FILENO);
+                        close(fds[i][1]);
+                        close(fds[i-1][0]);
+                    }
+                    else if(i == 0 && i < current_job.getNumCommands()-1)
+                    {
+                        close(fds[i][0]);
+                        dup2(fds[i][1], STDOUT_FILENO);
+                        close(fds[i][1]);
+                    }
+                    else if(i > 0 && i == current_job.getNumCommands()-1)
+                    {
+                        close(fds[i-1][1]);
+                        dup2(fds[i-1][0], STDIN_FILENO);
+                        close(fds[i-1][0]);
+                    }
+                    else
+                    {
+                        close(STDIN_FILENO);
+                    }
 
                     int num_args = current_command.getTokenArray().size();
                     char *args[num_args+1];
 
                     for(int j = 0; j < num_args; j++)
                     {
-                        strcpy(args[j], current_command.getTokenArray()[j].c_str());
+                        char *temp = (char*)current_command.getTokenArray()[j].c_str();
+                        args[j] = (char*) malloc(sizeof(char)*strlen(temp)+1);
+                        strcpy(args[j], temp);
                     }
                     args[num_args] = NULL;
 
                     execvp(args[0], args);
+
+                    std::cout << "Command does not exist" << std::endl;
                 }
 
                 // parent process
@@ -289,9 +332,9 @@ int main(int argc, char *argv[])
             }
             
         }
+
     }
 
-    
 
     return 0;
 }
