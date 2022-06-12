@@ -129,6 +129,215 @@ void execute_builtin(Job& job)
 }
 
 
+void make_args(Command& current_command, char **args, int num_args)
+{
+    for(int j = 0; j < num_args; j++)
+    {
+        char *temp = (char*)current_command.getTokenArray()[j].c_str();
+        args[j] = (char*) malloc(sizeof(char)*strlen(temp)+1);
+        strcpy(args[j], temp);
+    }
+    args[num_args] = NULL;
+}
+
+
+/*
+ * Implements the input, output, and error redirection
+ */
+void do_redirection(Job& job, Command& current_command, int command_number)
+{
+    // redirect input
+    if(current_command.isInputRedirected() && (command_number == 0))
+    {
+        int redirected_input = open(current_command.getInputFiles()[0].c_str(), O_RDONLY);
+        dup2(redirected_input, STDIN_FILENO);
+        close(redirected_input);
+    }
+
+    // redirect output
+    if(current_command.isOutputRedirected() && (command_number == job.getNumCommands()-1))
+    {
+        int redirected_output = open(current_command.getOutputFiles()[0].c_str(), O_WRONLY | O_CREAT);
+        dup2(redirected_output, STDOUT_FILENO);
+        close(redirected_output);
+    }
+
+    // redirect error
+    if(current_command.isErrorRedirected())
+    {
+        int redirected_error = open(current_command.getErrorFiles()[0].c_str(), O_WRONLY | O_CREAT);
+        dup2(redirected_error, STDERR_FILENO);
+        close(redirected_error);
+    }
+}
+
+
+/*
+ * Executes a single external command. No need for plumbing
+ */
+void execute_single_command(Job& job)
+{
+    pid_t pid = fork();
+
+    if(pid < 0)
+        std::cout << strerror(errno) << std::endl;
+    
+    else if(pid == 0)
+    {
+        Command current_command = job.getCommands()[0];
+        do_redirection(job, current_command, 0);
+
+        int num_args = current_command.getNumTokens();
+        char *args[num_args+1];
+        make_args(current_command,args,num_args);
+        execvp(args[0], args);
+        
+        std::cout << "Error with execvp..." << std::endl;
+    }
+
+    else
+    {
+        waitpid(pid, NULL, 0);
+    }
+}
+
+
+/*
+ * Connect the pipes in the pipeline.
+ */
+void connect_pipes(Job& job, int fds[][2], int i)
+{
+    // use dup2 to redirect stdout and stdin into and out of pipes
+    if(i > 0 && i < job.getNumCommands()-1)
+    {
+        dup2(fds[i-1][0], STDIN_FILENO);
+        dup2(fds[i][1], STDOUT_FILENO);
+        close(fds[i][1]);
+        close(fds[i-1][0]);
+    }
+    else if(i == 0 && i < job.getNumCommands()-1)
+    {
+        close(fds[i][0]);
+        dup2(fds[i][1], STDOUT_FILENO);
+        close(fds[i][1]);
+    }
+    else if(i > 0 && i == job.getNumCommands()-1)
+    {
+        close(fds[i-1][1]);
+        dup2(fds[i-1][0], STDIN_FILENO);
+        close(fds[i-1][0]);
+    }
+    else
+    {
+        close(STDIN_FILENO);
+    }
+}
+    
+
+
+/*
+ * Execute Unix pipeline. Forks N child processes, connects them via
+ * pipes, redirects output, and then waits on the children 1 by 1 if
+ * run in the foreground and continues if run in the background.
+ */
+void execute_pipeline(Job& job)
+{
+    // plumbing
+    int fds[job.getNumCommands()-1][2];
+    pid_t pids[job.getNumCommands()];
+
+    // make pipes
+    for(int i = 0; i < job.getNumCommands()-1; i++)
+        pipe(fds[i]);
+
+
+    for(int i = 0; i < job.getNumCommands(); i++)
+    {
+        Command current_command = job.getCommands()[i];
+
+        // fork new process
+        pids[i] = fork();
+
+
+        // error in forking
+        if(pids[i] < 0)
+        {
+            std::cout << strerror(errno) << std::endl;
+            break;
+        }
+
+        // child process
+        else if(pids[i] == 0)
+        {
+            // function implements the redirection
+            do_redirection(job, current_command, i);
+            
+            // connects the pipeline
+            connect_pipes(job, fds, i);
+
+
+            int num_args = current_command.getTokenArray().size();
+            char *args[num_args+1];
+            make_args(current_command, args, num_args);
+            
+
+            execvp(args[0], args);
+
+            std::cout << "Command does not exist" << std::endl;
+        }
+
+        // parent process
+        else
+        {
+            if(i > 0 && i < job.getNumCommands()-1)
+            {
+                close(fds[i][1]);
+                close(fds[i-1][0]);
+            }
+            else if(i == 0)
+            {
+                close(fds[i][1]);
+            }
+            else if(i == job.getNumCommands()-1)
+            {
+                close(fds[i-1][0]);
+            }
+
+            if(i == job.getNumCommands()-1 && job.isBackground())
+            {
+                job_table.insert(next_job_number, job);
+                next_job_number++;
+                break;
+            }
+        }
+    }
+
+    // wait on child processes if job is not run in the background
+    if(!job.isBackground())
+    {
+        for(int i = 0; i < job.getNumCommands(); i++)
+        {
+            int status;
+            waitpid(pids[i], &status, 0);
+        }
+    }
+}
+
+
+
+/*
+ * Executes an external command. This can be either a single command
+ * or an entire pipeline of commands.
+ */
+void execute_external_command(Job& job)
+{
+    if(job.getNumCommands() == 1)
+        execute_single_command(job);
+    else
+        execute_pipeline(job);            
+}
+
+
 
 /**********************
  * Main shell Program *
@@ -154,17 +363,16 @@ int main(int argc, char *argv[])
     // initialize the various tables for shell functionality
     initialize_builtin_table();
     initialize_sighandler_table();
-
     
 
     while(true)
     {
         //std::getline(std::cin, command_input, '\n');
         std::cout << make_prompt();
-
-
         std::string command_input;
-        
+
+        fflush(stdin);
+        fflush(stdout);
         std::getline(std::cin >> std::ws, command_input);
         
         
@@ -190,148 +398,16 @@ int main(int argc, char *argv[])
         // empty command
         if(current_job.getNumCommands() == 0)
         {
+            fflush(stdin);
+            fflush(stdout);
             continue;
         }
-        
 
-        
 
         if(is_builtin(current_job))
-        {
             execute_builtin(current_job);
-            continue;
-        }
-
         else
-        {
-            // plumbing
-            int fds[current_job.getNumCommands()-1][2];
-            pid_t pids[current_job.getNumCommands()];
-
-            for(int i = 0; i < current_job.getNumCommands(); i++)
-            {
-                Command current_command = current_job.getCommands()[i];
-
-                // make pipes
-                if(i < current_job.getNumCommands()-1)
-                    pipe(fds[i]);
-
-
-                pids[i] = fork();
-
-
-                // error in forking
-                if(pids[i] < 0)
-                {
-                    std::cout << strerror(errno) << std::endl;
-                    break;
-                }
-
-                // child process
-                else if(pids[i] == 0)
-                {
-                    
-
-                    // redirect input, output, and error
-                    if(current_command.isInputRedirected() && (i == 0))
-                    {
-                        int redirected_input = open(current_command.getInputFiles()[0].c_str(), O_RDONLY);
-                        dup2(redirected_input, STDIN_FILENO);
-                        close(redirected_input);
-                    }
-
-                    if(current_command.isOutputRedirected() && (i == current_job.getNumCommands()-1))
-                    {
-                        int redirected_output = open(current_command.getOutputFiles()[0].c_str(), O_WRONLY | O_CREAT);
-                        dup2(redirected_output, STDOUT_FILENO);
-                        close(redirected_output);
-                    }
-
-                    if(current_command.isErrorRedirected())
-                    {
-                        int redirected_error = open(current_command.getErrorFiles()[0].c_str(), O_WRONLY | O_CREAT);
-                        dup2(redirected_error, STDERR_FILENO);
-                        close(redirected_error);
-                    }
-                    
-
-                    // use dup2 to redirect stdout and stdin into and out of pipes
-                    if(i > 0 && i < current_job.getNumCommands()-1)
-                    {
-                        dup2(fds[i-1][0], STDIN_FILENO);
-                        dup2(fds[i][1], STDOUT_FILENO);
-                        close(fds[i][1]);
-                        close(fds[i-1][0]);
-                    }
-                    else if(i == 0 && i < current_job.getNumCommands()-1)
-                    {
-                        close(fds[i][0]);
-                        dup2(fds[i][1], STDOUT_FILENO);
-                        close(fds[i][1]);
-                    }
-                    else if(i > 0 && i == current_job.getNumCommands()-1)
-                    {
-                        close(fds[i-1][1]);
-                        dup2(fds[i-1][0], STDIN_FILENO);
-                        close(fds[i-1][0]);
-                    }
-                    else
-                    {
-                        close(STDIN_FILENO);
-                    }
-
-                    int num_args = current_command.getTokenArray().size();
-                    char *args[num_args+1];
-
-                    for(int j = 0; j < num_args; j++)
-                    {
-                        char *temp = (char*)current_command.getTokenArray()[j].c_str();
-                        args[j] = (char*) malloc(sizeof(char)*strlen(temp)+1);
-                        strcpy(args[j], temp);
-                    }
-                    args[num_args] = NULL;
-
-                    execvp(args[0], args);
-
-                    std::cout << "Command does not exist" << std::endl;
-                }
-
-                // parent process
-                else
-                {
-                    if(i > 0 && i < current_job.getNumCommands()-1)
-                    {
-                        close(fds[i][1]);
-                        close(fds[i-1][0]);
-                    }
-                    else if(i == 0)
-                    {
-                        close(fds[i][1]);
-                    }
-                    else if(i == current_job.getNumCommands()-1)
-                    {
-                        close(fds[i-1][0]);
-                    }
-
-                    if(i == current_job.getNumCommands()-1 && current_job.isBackground())
-                    {
-                        job_table.insert(next_job_number, current_job);
-                        break;
-                    }
-                }
-            }
-
-            // wait on child processes if job is not run in the background
-            if(!current_job.isBackground())
-            {
-                for(int i = 0; i < current_job.getNumCommands(); i++)
-                {
-                    int status;
-                    waitpid(pids[i], &status, 0);
-                }
-            }
-            
-        }
+            execute_external_command(current_job);
 
     }
 
