@@ -99,6 +99,10 @@ void initialize_sighandler_table()
 }
 
 
+/*
+ * Checks if a given command is a builtin command. Used to determine whether
+ * to call execute_builtin or execute_external_command.
+ */
 bool is_builtin(Job& job)
 {
     if(job.getNumCommands() == 0)
@@ -117,6 +121,10 @@ bool is_builtin(Job& job)
 }
 
 
+/*
+ * Executes a given builtin command by accessing builtin table and
+ * calling the function stored there.
+ */
 void execute_builtin(Job& job)
 {
     std::string command_name = job.getCommands()[0].getTokenArray()[0];
@@ -192,7 +200,7 @@ void execute_single_command(Job& job)
         make_args(current_command,args,num_args);
         execvp(args[0], args);
         
-        std::cout << "Error with execvp..." << std::endl;
+        std::cout << "Command not found..." << std::endl;
     }
 
     else
@@ -284,6 +292,8 @@ void execute_pipeline(Job& job)
             execvp(args[0], args);
 
             std::cout << "Command does not exist" << std::endl;
+
+            _exit(1);
         }
 
         // parent process

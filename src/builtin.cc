@@ -9,12 +9,15 @@
 
 #include <iostream>
 #include <string>
+
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
 
 
 #include <main.h>
+#include <parse.h>
 
 #define MAX_PATHNAME_LENGTH 128
 
@@ -112,8 +115,8 @@ BUILTIN_TABLE int do_builtin_dot(int argc, std::string argv[])
     else if(pid == 0)
     {
         execvp(args[0], args);
-
         std::cout << strerror(errno) << std::endl;
+        _exit(1);
     }
 
     else
@@ -138,23 +141,41 @@ BUILTIN_TABLE int do_builtin_exit(int argc, std::string argv[])
     if(argc == 1)
     {
         const char *arg = argv[0].c_str();
-        exit(atoi(arg));
+        _exit(atoi(arg));
     }
 
-    exit(0);
+    _exit(0);
 }
 
 
 BUILTIN_TABLE int do_builtin_export(int argc, std::string argv[])
 {
-    std::cout << "Not implemented..." << std::endl;
-    return -1;
+    if(argc != 2)
+    {
+        std::cout << "Incorrect format to export. Correct usage: export VARNAME=VALUE" << std::endl;
+        return -1;
+    }
+
+    std::vector<std::string> tokens = tokenize(argv[1], "=");
+
+    if(tokens.size() != 2)
+    {
+        std::cout << "Incorrect format to export. Correct usage: export VARNAME=VALUE" << std::endl;
+        return -1;
+    }
+
+    if(setenv(tokens[0].c_str(), tokens[1].c_str(), 1) == -1)
+    {
+        std::cout << strerror(errno) << std::endl;
+    }
+
+    return 0;
 }
 
 
 BUILTIN_TABLE int do_builtin_pwd(int argc, std::string argv[])
 {
-    if(argc != 0)
+    if(argc != 1)
     {
         std::cout << "Incorrect number of arguments to pwd" << std::endl;
         return -1;
@@ -180,8 +201,19 @@ BUILTIN_TABLE int do_builtin_umask(int argc, std::string argv[])
 
 BUILTIN_TABLE int do_builtin_unset(int argc, std::string argv[])
 {
-    std::cout << "Not implemented..." << std::endl;
-    return -1;
+    if(argc != 2)
+    {
+        std::cout << "Incorrect format for unset. Correct usage: unset VARNAME" << std::endl;
+        return -1;
+    }
+
+    if(unsetenv(argv[1].c_str()) == -1)
+    {
+        std::cout << strerror(errno) << std::endl;
+        return -1;
+    }
+
+    return 0;
 }
 
 

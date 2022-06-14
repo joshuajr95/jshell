@@ -3,6 +3,8 @@
 CC=clang++
 CFLAGS=  -g -Wall -O0 -std=c++11 --verbose
 
+CONFIG_FILE=settings.cfg
+#SDIR := $(shell grep -f ${settings.cfg} SDIR | )
 SDIR=src
 INCL=include
 ODIR=obj
